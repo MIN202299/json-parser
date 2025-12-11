@@ -11,11 +11,16 @@ import {
   Code2, 
   FileCode,
   CheckCircle2,
-  Upload
+  Upload,
+  History,
+  Search,
+  X
 } from 'lucide-react';
 import JsonTree from './components/JsonTree';
 import ActionButton from './components/ActionButton';
-import { ParseResult, ViewMode, AiAction } from './types';
+import HistoryPanel from './components/HistoryPanel';
+import HighlightText from './components/HighlightText';
+import { ParseResult, ViewMode, AiAction, HistoryItem } from './types';
 import { fixInvalidJson, generateTypeScriptInterfaces } from './services/geminiService';
 
 const DEFAULT_JSON = `{
@@ -35,13 +40,48 @@ const DEFAULT_JSON = `{
   "metrics": null
 }`;
 
+const HISTORY_KEY = 'nexus_json_history';
+const MAX_HISTORY_DAYS = 7;
+const MAX_HISTORY_ITEMS = 50;
+
 const App: React.FC = () => {
   const [input, setInput] = useState<string>(DEFAULT_JSON);
   const [parseResult, setParseResult] = useState<ParseResult>({ valid: true, data: null, error: null });
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [aiLoading, setAiLoading] = useState<AiAction>('idle');
   const [generatedTypes, setGeneratedTypes] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // History State
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize History on Mount (Cleanup older than 7 days)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HISTORY_KEY);
+      if (stored) {
+        const parsedHistory: HistoryItem[] = JSON.parse(stored);
+        const now = Date.now();
+        const cutoff = now - (MAX_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+        
+        // Filter valid items within 7 days
+        const validHistory = parsedHistory.filter(item => item.timestamp > cutoff);
+        
+        setHistory(validHistory);
+        
+        // Update storage if cleanup happened
+        if (validHistory.length !== parsedHistory.length) {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(validHistory));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load history", e);
+      localStorage.removeItem(HISTORY_KEY);
+    }
+  }, []);
 
   // Parse JSON effect
   useEffect(() => {
@@ -56,6 +96,32 @@ const App: React.FC = () => {
       setParseResult({ valid: false, data: null, error: e.message });
     }
   }, [input]);
+
+  // Auto-save to History Effect (Debounced)
+  useEffect(() => {
+    if (!parseResult.valid || !input.trim()) return;
+
+    const timeoutId = setTimeout(() => {
+      setHistory(prev => {
+        // Don't save if it's identical to the latest entry
+        if (prev.length > 0 && prev[0].content === input) {
+          return prev;
+        }
+
+        const newItem: HistoryItem = {
+          id: Date.now().toString(),
+          timestamp: Date.now(),
+          content: input
+        };
+
+        const newHistory = [newItem, ...prev].slice(0, MAX_HISTORY_ITEMS);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+        return newHistory;
+      });
+    }, 2000); // Wait 2 seconds of inactivity before saving
+
+    return () => clearTimeout(timeoutId);
+  }, [input, parseResult.valid]);
 
   // Actions
   const handleFormat = () => {
@@ -94,6 +160,25 @@ const App: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // History Actions
+  const handleRestoreHistory = (item: HistoryItem) => {
+    setInput(item.content);
+    setShowHistory(false);
+  };
+
+  const handleDeleteHistory = (id: string) => {
+    const newHistory = history.filter(h => h.id !== id);
+    setHistory(newHistory);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+  };
+
+  const handleClearHistory = () => {
+    if (confirm('Are you sure you want to clear all history?')) {
+      setHistory([]);
+      localStorage.removeItem(HISTORY_KEY);
+    }
+  };
+
   // AI Actions
   const handleAiFix = async () => {
     if (!input.trim()) return;
@@ -122,6 +207,19 @@ const App: React.FC = () => {
     }
   };
 
+  // Render logic for the Code view to support highlighting
+  const renderCodeView = () => {
+    const content = generatedTypes || (parseResult.data ? JSON.stringify(parseResult.data, null, 2) : '');
+    
+    return (
+      <div className="h-full relative overflow-auto">
+        <pre className="w-full h-full bg-transparent font-mono text-sm text-slate-300 p-0 m-0 whitespace-pre-wrap">
+          <HighlightText text={content} query={searchQuery} />
+        </pre>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-200">
       {/* Header */}
@@ -144,20 +242,38 @@ const App: React.FC = () => {
               rel="noreferrer"
               className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
             >
-              v1.0.0
+              v1.1.0
             </a>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden">
+      <main className="flex-1 flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden relative">
         
         {/* Editor Pane (Left) */}
-        <div className="flex-1 flex flex-col border-r border-slate-800 min-w-0">
+        <div className="flex-1 flex flex-col border-r border-slate-800 min-w-0 relative">
+          
+          {/* History Panel Overlay */}
+          <HistoryPanel 
+            isOpen={showHistory} 
+            onClose={() => setShowHistory(false)}
+            history={history}
+            onSelect={handleRestoreHistory}
+            onDelete={handleDeleteHistory}
+            onClear={handleClearHistory}
+          />
+
           {/* Toolbar */}
           <div className="h-12 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 justify-between gap-2 overflow-x-auto">
             <div className="flex items-center gap-2">
+              <ActionButton 
+                icon={History} 
+                label="History" 
+                variant={showHistory ? "primary" : "secondary"}
+                onClick={() => setShowHistory(!showHistory)} 
+              />
+              <div className="w-px h-6 bg-slate-700 mx-1"></div>
               <ActionButton 
                 icon={Maximize} 
                 label="Format" 
@@ -245,8 +361,8 @@ const App: React.FC = () => {
         {/* Viewer Pane (Right) */}
         <div className="flex-1 flex flex-col bg-slate-925 min-w-0">
           {/* Toolbar */}
-          <div className="h-12 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 justify-between">
-            <div className="flex bg-slate-800 rounded-md p-1 gap-1">
+          <div className="h-12 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 justify-between gap-4">
+            <div className="flex bg-slate-800 rounded-md p-1 gap-1 shrink-0">
               <button
                 onClick={() => setViewMode('tree')}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-all ${
@@ -269,8 +385,30 @@ const App: React.FC = () => {
                 {generatedTypes ? 'TypeScript' : 'Raw'}
               </button>
             </div>
+            
+            {/* Search Input */}
+             <div className="flex-1 max-w-xs relative group">
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                  <Search size={14} />
+                </div>
+                <input 
+                  type="text" 
+                  placeholder="Search..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-md py-1.5 pl-8 pr-8 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <ActionButton 
                 icon={Code2} 
                 label="Gen Types" 
@@ -300,7 +438,7 @@ const App: React.FC = () => {
             {viewMode === 'tree' ? (
                parseResult.valid && parseResult.data !== null ? (
                 <div className="animate-in fade-in duration-300">
-                  <JsonTree data={parseResult.data} />
+                  <JsonTree data={parseResult.data} searchQuery={searchQuery} />
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-600">
@@ -310,13 +448,7 @@ const App: React.FC = () => {
               )
             ) : (
               // Code View (Raw or Types)
-              <div className="h-full relative">
-                 <textarea 
-                    readOnly
-                    value={generatedTypes || (parseResult.data ? JSON.stringify(parseResult.data, null, 2) : '')}
-                    className="w-full h-full bg-transparent font-mono text-sm text-slate-300 resize-none focus:outline-none"
-                 />
-              </div>
+              renderCodeView()
             )}
           </div>
           

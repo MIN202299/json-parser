@@ -12,5 +12,11 @@ export interface ParseResult {
   error: string | null;
 }
 
+export interface HistoryItem {
+  id: string;
+  timestamp: number;
+  content: string;
+}
+
 export type ViewMode = 'tree' | 'code';
 export type AiAction = 'fix' | 'types' | 'idle';
