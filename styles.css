@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Scrollbar Override if needed, though Tailwind supports this via plugins or utilities, keeping raw css for simplicity here */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -16,4 +16,42 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b; 
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Hide Spinners in Number Inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Search Highlighting */
+.search-match {
+  @apply bg-yellow-500/30 text-yellow-100 rounded-[2px] px-0.5 transition-all duration-200;
+}
+
+.search-match-active {
+  @apply bg-orange-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.5)] ring-2 ring-orange-400 z-10 scale-105;
+}
+
+/* Animations */
+@keyframes highlight-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.animate-pulse-slow {
+  animation: highlight-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

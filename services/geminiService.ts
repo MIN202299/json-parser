@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 const getAiClient = () => {
@@ -18,8 +19,9 @@ export const fixInvalidJson = async (malformedJson: string): Promise<string> => 
       ${malformedJson}
     `;
 
+    // Use gemini-3-pro-preview for complex coding tasks like JSON repair
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
@@ -45,8 +47,9 @@ export const generateTypeScriptInterfaces = async (jsonString: string): Promise<
       ${jsonString}
     `;
 
+    // Use gemini-3-pro-preview for advanced reasoning and code generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
     });
 

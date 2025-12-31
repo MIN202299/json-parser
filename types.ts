@@ -18,5 +18,10 @@ export interface HistoryItem {
   content: string;
 }
 
+export interface RecursiveConfig {
+  enabled: boolean;
+  maxDepth: number;
+}
+
 export type ViewMode = 'tree' | 'code';
 export type AiAction = 'fix' | 'types' | 'idle';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronDown, PackageOpen } from 'lucide-react';
 import { JsonValue, JsonObject, JsonArray } from '../types';
 import HighlightText from './HighlightText';
 
@@ -11,26 +11,16 @@ interface JsonTreeProps {
   searchQuery?: string;
 }
 
-// Helper to check if data contains the search query recursively
 const containsMatch = (data: JsonValue, query: string, keyName?: string): boolean => {
   if (!query) return false;
   const q = query.toLowerCase();
-  
-  // Check key match
   if (keyName && keyName.toLowerCase().includes(q)) return true;
-
-  // Check primitive value match
   if (typeof data === 'string' && data.toLowerCase().includes(q)) return true;
   if (typeof data === 'number' && String(data).includes(q)) return true;
   if (typeof data === 'boolean' && String(data).includes(q)) return true;
-
-  // Check object/array children
   if (data !== null && typeof data === 'object') {
-    return Object.entries(data).some(([key, value]) => 
-      containsMatch(value, query, key)
-    );
+    return Object.entries(data).some(([key, value]) => containsMatch(value, query, key));
   }
-
   return false;
 };
 
@@ -43,22 +33,15 @@ const JsonTree: React.FC<JsonTreeProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(depth < 2);
 
-  // Determine if this node or its children have a match
   const hasMatch = useMemo(() => {
     return containsMatch(data, searchQuery, name);
   }, [data, searchQuery, name]);
 
-  // Auto-expand if search query exists and there is a match deep inside
   useEffect(() => {
     if (searchQuery && hasMatch) {
       setIsExpanded(true);
-    } else if (!searchQuery) {
-      // Optional: Reset to default state or keep current. 
-      // Keeping current is usually better UX, but here we revert to default depth logic if cleared
-      // to avoid clutter, or just leave it. Let's leave it as user controlled unless searching.
-      if (depth < 2) setIsExpanded(true);
     }
-  }, [searchQuery, hasMatch, depth]);
+  }, [searchQuery, hasMatch]);
 
   const isObject = data !== null && typeof data === 'object';
   const isArray = Array.isArray(data);
@@ -81,26 +64,25 @@ const JsonTree: React.FC<JsonTreeProps> = ({
     return null;
   };
 
-  const renderSuffix = () => {
-    if (isLast) return null;
-    return <span className="text-slate-500">,</span>;
-  };
-
   const renderKey = () => {
     if (!name) return null;
     return (
-      <span className="text-sky-300 mr-1">
+      <span className="text-sky-300 mr-1 flex items-center gap-1">
         "<HighlightText text={name} query={searchQuery} className="text-sky-300" />":
       </span>
     );
   };
 
+  const renderSuffix = () => isLast ? null : <span className="text-slate-500">,</span>;
+
   if (!isObject) {
     return (
-      <div className={`font-mono text-sm leading-6 hover:bg-slate-800/30 px-1 rounded ${searchQuery && hasMatch ? 'bg-indigo-900/20' : ''}`}>
-        {renderKey()}
-        {renderValue(data)}
-        {renderSuffix()}
+      <div className={`font-mono text-sm leading-6 hover:bg-slate-800/30 px-1 rounded transition-colors ${searchQuery && hasMatch ? 'bg-indigo-900/20' : ''}`}>
+        <div className="flex items-baseline">
+          {renderKey()}
+          {renderValue(data)}
+          {renderSuffix()}
+        </div>
       </div>
     );
   }
@@ -111,7 +93,7 @@ const JsonTree: React.FC<JsonTreeProps> = ({
 
   if (isEmpty) {
     return (
-      <div className="font-mono text-sm leading-6 hover:bg-slate-800/30 px-1 rounded">
+      <div className="font-mono text-sm leading-6 hover:bg-slate-800/30 px-1 rounded flex items-center">
          {renderKey()}
          <span className="text-slate-400">{openBracket}{closeBracket}</span>
          {renderSuffix()}
@@ -122,7 +104,7 @@ const JsonTree: React.FC<JsonTreeProps> = ({
   return (
     <div className="font-mono text-sm">
       <div 
-        className={`flex items-center cursor-pointer hover:bg-slate-800/50 rounded px-1 select-none transition-colors ${searchQuery && hasMatch ? 'bg-indigo-900/10' : ''}`}
+        className={`flex items-center cursor-pointer hover:bg-slate-800/50 rounded px-1 select-none transition-all ${searchQuery && hasMatch ? 'bg-indigo-900/10' : ''}`}
         onClick={handleToggle}
       >
         <span className={`mr-1 transition-colors ${searchQuery && hasMatch ? 'text-indigo-400' : 'text-slate-500'}`}>
@@ -131,7 +113,7 @@ const JsonTree: React.FC<JsonTreeProps> = ({
         {renderKey()}
         <span className="text-slate-400">{openBracket}</span>
         {!isExpanded && (
-           <span className="text-slate-600 ml-1 text-xs italic">
+           <span className="text-slate-600 ml-1 text-[10px] uppercase font-bold tracking-tight bg-slate-800 px-1.5 py-0.5 rounded-sm">
              {isArray ? `${keys.length} items` : `${keys.length} keys`}
            </span>
         )}
@@ -140,25 +122,22 @@ const JsonTree: React.FC<JsonTreeProps> = ({
       </div>
 
       {isExpanded && (
-        <div className="pl-4 border-l border-slate-700/50 ml-1.5 my-1">
-          {keys.map((key, index) => {
-            const value = (data as any)[key];
-            return (
-              <JsonTree
-                key={key}
-                name={isArray ? undefined : key}
-                data={value}
-                isLast={index === keys.length - 1}
-                depth={depth + 1}
-                searchQuery={searchQuery}
-              />
-            );
-          })}
+        <div className="pl-4 border-l border-slate-700/50 ml-1.5 my-0.5">
+          {keys.map((key, index) => (
+            <JsonTree
+              key={key}
+              name={isArray ? undefined : key}
+              data={(data as any)[key]}
+              isLast={index === keys.length - 1}
+              depth={depth + 1}
+              searchQuery={searchQuery}
+            />
+          ))}
         </div>
       )}
       
       {isExpanded && (
-        <div className="pl-6 hover:bg-slate-800/30 rounded px-1">
+        <div className="pl-6 hover:bg-slate-800/30 rounded px-1 flex items-center">
             <span className="text-slate-400">{closeBracket}</span>
             {renderSuffix()}
         </div>
