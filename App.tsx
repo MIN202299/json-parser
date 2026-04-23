@@ -39,6 +39,8 @@ const MAX_HISTORY_ITEMS = 50;
 
 const App: React.FC = () => {
   const [input, setInput] = useState<string>(DEFAULT_JSON);
+  const [clipboardLoaded, setClipboardLoaded] = useState(false);
+  const [isPWA, setIsPWA] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResult>({ valid: true, data: null, error: null });
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [aiLoading, setAiLoading] = useState<AiAction>('idle');
@@ -130,6 +132,39 @@ const App: React.FC = () => {
       console.error("Failed to load history", e);
     }
   }, []);
+
+  // Detect PWA mode on mount
+  useEffect(() => {
+    const pwa = window.matchMedia('(display-mode: standalone)').matches || 
+      (window.navigator as any).standalone === true;
+    setIsPWA(pwa);
+  }, []);
+
+  // Auto-read clipboard when PWA opens (only once)
+  useEffect(() => {
+    if (isPWA && !clipboardLoaded) {
+      const loadClipboard = async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text && text.trim()) {
+            // Try to parse as JSON first, if valid use it
+            try {
+              JSON.parse(text);
+              setInput(text);
+              setClipboardLoaded(true);
+            } catch {
+              // Not valid JSON, still paste it (user can fix with AI)
+              setInput(text);
+              setClipboardLoaded(true);
+            }
+          }
+        } catch (e) {
+          console.log('Clipboard read failed or denied:', e);
+        }
+      };
+      loadClipboard();
+    }
+  }, [isPWA, clipboardLoaded]);
 
   // Parse JSON from Input
   useEffect(() => {
