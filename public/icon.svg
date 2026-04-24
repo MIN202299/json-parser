@@ -1,8 +1,4 @@
-const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
-
-const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1e1b4b"/>
@@ -13,28 +9,15 @@ const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
       <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
     </radialGradient>
   </defs>
+  <!-- Background rounded square -->
   <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Center glow -->
   <circle cx="256" cy="256" r="240" fill="url(#glow)"/>
+  <!-- Indigo accent ring -->
   <circle cx="256" cy="256" r="180" fill="none" stroke="#4f46e5" stroke-width="2" opacity="0.3"/>
+  <!-- Curly braces (lucide Braces icon paths, scaled into center) -->
   <svg x="88" y="72" width="336" height="368" viewBox="0 0 24 24" fill="none" stroke="#c7d2fe" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/>
     <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>
   </svg>
-</svg>`;
-
-async function generateIcons() {
-  const svgBuffer = Buffer.from(svgIcon);
-
-  await sharp(svgBuffer).resize(512, 512).png().toFile(path.join('public', 'pwa-512x512.png'));
-  console.log('Generated pwa-512x512.png');
-
-  await sharp(svgBuffer).resize(192, 192).png().toFile(path.join('public', 'pwa-192x192.png'));
-  console.log('Generated pwa-192x192.png');
-
-  // Also copy to root for dev server
-  fs.copyFileSync(path.join('public', 'pwa-512x512.png'), 'pwa-512x512.png');
-  fs.copyFileSync(path.join('public', 'pwa-192x192.png'), 'pwa-192x192.png');
-  console.log('Icons generated!');
-}
-
-generateIcons().catch(console.error);
+</svg>
